@@ -67,17 +67,14 @@ function toIsoDate(ddmmyyyy: string): string | null {
   return m ? `${m[3]}-${m[2]}-${m[1]}` : null;
 }
 
-async function readAttendance(jar: Map<string, string>) {
-  const toD = new Date();
-  const to = toD.toISOString().slice(0, 10);
-  const back = new Date(toD.getTime() - 60 * 86400000).toISOString().slice(0, 10);
-  const from = back < START ? START : back;
-  if (to < from) return []; // aún no se ha llegado a la fecha de inicio
+type AttRow = { work_date: string; entrada: string | null; salida: string | null; horas: number };
+
+async function readAttendanceRange(jar: Map<string, string>, from: string, to: string): Promise<AttRow[]> {
   const res = await fetch(`${BASE}/teacher/attendance?from_date=${from}&to_date=${to}`, {
     headers: { Cookie: cookieHeader(jar) },
   });
   const doc = new DOMParser().parseFromString(await res.text(), "text/html");
-  const rows: { work_date: string; entrada: string | null; salida: string | null; horas: number }[] = [];
+  const rows: AttRow[] = [];
   for (const tr of doc?.querySelectorAll("table tbody tr") ?? []) {
     const tds = [...(tr as Element).querySelectorAll("td")].map((t) => t.textContent.trim());
     if (tds.length < 4) continue;
@@ -87,6 +84,34 @@ async function readAttendance(jar: Map<string, string>) {
     rows.push({ work_date: iso, entrada: clean(tds[1]), salida: clean(tds[2]), horas: parseFloat(tds[3]) || 0 });
   }
   return rows;
+}
+
+async function readAttendance(jar: Map<string, string>): Promise<AttRow[]> {
+  const toD = new Date();
+  const to = toD.toISOString().slice(0, 10);
+  const back = new Date(toD.getTime() - 60 * 86400000).toISOString().slice(0, 10);
+  const from = back < START ? START : back;
+  if (to < from) return []; // aún no se ha llegado a la fecha de inicio
+  return readAttendanceRange(jar, from, to);
+}
+
+/** Lee la hora del token CSRF de la página del profesor y envía un fichaje manual. */
+async function postClockManual(jar: Map<string, string>, day: string, start: string, end: string): Promise<void> {
+  const g = await fetch(`${BASE}/teacher/`, { headers: { Cookie: cookieHeader(jar) } });
+  const csrf = extractCsrf(await g.text());
+  if (!csrf) throw new Error("No se pudo preparar el envío (token)");
+  const body = new URLSearchParams({ csrf_token: csrf, day, start, end });
+  const p = await fetch(`${BASE}/teacher/clock-manual`, {
+    method: "POST",
+    redirect: "manual",
+    headers: { "Content-Type": "application/x-www-form-urlencoded", Cookie: cookieHeader(jar) },
+    body: body.toString(),
+  });
+  mergeCookies(jar, p);
+  if (p.status >= 400 && p.status < 600 && p.status !== 500) {
+    // 4xx = rechazo del servidor
+    if (p.status >= 400 && p.status < 500) throw new Error(`La escuela rechazó el fichaje (${p.status})`);
+  }
 }
 
 async function readClasses(jar: Map<string, string>, from: string, to: string) {
@@ -122,6 +147,60 @@ async function readClasses(jar: Map<string, string>, from: string, to: string) {
   return classes;
 }
 
+type Admin = ReturnType<typeof createClient>;
+
+/** Fase B: envía a la escuela el fichaje de un día (con las horas reales guardadas). */
+async function handleClock(admin: Admin, userId: string, day: string): Promise<Response> {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return json({ error: "Día no válido" }, 400);
+
+  const { data: session } = await admin.from("work_sessions").select("id, work_date").eq("user_id", userId).eq("work_date", day).maybeSingle();
+  if (!session) return json({ error: "No tienes jornada guardada ese día" }, 400);
+  const { data: events } = await admin.from("time_events").select("type, received_at_utc, local_time").eq("work_session_id", (session as { id: string }).id).order("received_at_utc", { ascending: true });
+  const evs = (events ?? []) as { type: string; local_time: string }[];
+  const firstIn = evs.find((e) => e.type === "clock_in");
+  const lastOut = [...evs].reverse().find((e) => e.type === "clock_out");
+  if (!firstIn || !lastOut) return json({ error: "La jornada de ese día no está cerrada (falta entrada o salida)" }, 400);
+  const start = firstIn.local_time.slice(0, 5);
+  const end = lastOut.local_time.slice(0, 5);
+  const nowIso = () => new Date().toISOString();
+
+  const jar = new Map<string, string>();
+  try {
+    await login(jar);
+  } catch (e) {
+    return json({ error: e instanceof Error ? e.message : "No se pudo conectar" }, 502);
+  }
+
+  // ¿Ya está fichado ese día en la escuela? -> no duplicar
+  const before = await readAttendanceRange(jar, day, day);
+  const existing = before.find((r) => r.work_date === day && (r.entrada || r.horas > 0));
+  if (existing) {
+    await admin.from("platform_records").upsert({ user_id: userId, work_date: day, entrada: existing.entrada, salida: existing.salida, horas: existing.horas, fetched_at: nowIso() }, { onConflict: "user_id,work_date" });
+    await admin.from("sync_jobs").upsert({ user_id: userId, work_date: day, status: "synced", method: "already", start_sent: start, end_sent: end, last_attempt_at: nowIso(), updated_at: nowIso() }, { onConflict: "user_id,work_date" });
+    return json({ ok: true, status: "already", message: "Ese día ya estaba fichado en la escuela" });
+  }
+
+  await admin.from("sync_jobs").upsert({ user_id: userId, work_date: day, status: "pending", method: "clock_manual", start_sent: start, end_sent: end, last_attempt_at: nowIso(), updated_at: nowIso() }, { onConflict: "user_id,work_date" });
+  try {
+    await postClockManual(jar, day, start, end);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Error al enviar";
+    await admin.from("sync_jobs").update({ status: "failed", last_error: msg, updated_at: nowIso() }).eq("user_id", userId).eq("work_date", day);
+    return json({ ok: false, status: "failed", error: msg }, 502);
+  }
+
+  // Verificar releyendo la escuela
+  const after = await readAttendanceRange(jar, day, day);
+  const row = after.find((r) => r.work_date === day && (r.entrada || r.horas > 0));
+  if (row) {
+    await admin.from("platform_records").upsert({ user_id: userId, work_date: day, entrada: row.entrada, salida: row.salida, horas: row.horas, fetched_at: nowIso() }, { onConflict: "user_id,work_date" });
+    await admin.from("sync_jobs").update({ status: "synced", last_error: null, updated_at: nowIso() }).eq("user_id", userId).eq("work_date", day);
+    return json({ ok: true, status: "synced", entrada: row.entrada, salida: row.salida, horas: row.horas });
+  }
+  await admin.from("sync_jobs").update({ status: "needs_review", last_error: "Enviado pero no verificado", updated_at: nowIso() }).eq("user_id", userId).eq("work_date", day);
+  return json({ ok: false, status: "needs_review", error: "Se envió pero no se pudo verificar; revísalo en la escuela" });
+}
+
 function defaultWeek(): { from: string; to: string } {
   const d = new Date();
   const dow = (d.getUTCDay() + 6) % 7; // 0 = lunes
@@ -136,7 +215,7 @@ Deno.serve(async (req) => {
   try {
     if (!USERNAME || !PASSWORD) return json({ error: "Faltan las credenciales de la escuela en los secretos" }, 400);
 
-    const bodyIn = await req.json().catch(() => ({})) as { from?: string; to?: string };
+    const bodyIn = await req.json().catch(() => ({})) as { from?: string; to?: string; action?: string; day?: string };
     const dw = defaultWeek();
     const from = /^\d{4}-\d{2}-\d{2}$/.test(bodyIn.from ?? "") ? bodyIn.from! : dw.from;
     const to = /^\d{4}-\d{2}-\d{2}$/.test(bodyIn.to ?? "") ? bodyIn.to! : dw.to;
@@ -151,6 +230,9 @@ Deno.serve(async (req) => {
     if (!user) return json({ error: "No autenticado" }, 401);
 
     const admin = createClient(supaUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+
+    // Fase B: enviar un fichaje concreto a la escuela.
+    if (bodyIn.action === "clock") return await handleClock(admin, user.id, bodyIn.day ?? "");
 
     const jar = new Map<string, string>();
     try {

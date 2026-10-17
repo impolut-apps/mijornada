@@ -3,9 +3,12 @@ import { useNavigate, useParams } from "react-router-dom";
 import { IcChevronL, IcCoffee, IcPlay, IcStop } from "../components/icons";
 import { SyncBadge } from "../components/SyncBadge";
 import { getSessionById, getSessionEvents } from "../lib/fichaje";
+import { getSyncJob, sendClock, type SyncJob } from "../lib/school";
 import { computeDay } from "../lib/sessions";
 import { formatDateLong, formatDuration, formatHM, userTimezone } from "../lib/time";
-import type { TimeEvent, WorkSession } from "../lib/types";
+import { useToast } from "../ui/ToastProvider";
+import { useConfirm } from "../ui/ConfirmProvider";
+import type { SyncState, TimeEvent, WorkSession } from "../lib/types";
 
 type Item =
   | { kind: "in" | "out"; time: string; title: string; sub: string }
@@ -37,17 +40,24 @@ function buildItems(events: TimeEvent[], tz: string): Item[] {
 export default function DetalleJornada() {
   const { id = "" } = useParams();
   const nav = useNavigate();
+  const toast = useToast();
+  const confirm = useConfirm();
   const tz = userTimezone();
   const [session, setSession] = useState<WorkSession | null>(null);
   const [events, setEvents] = useState<TimeEvent[]>([]);
+  const [job, setJob] = useState<SyncJob | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
 
   useEffect(() => {
     (async () => {
       try {
         const s = await getSessionById(id);
         setSession(s);
-        if (s) setEvents(await getSessionEvents(s.id));
+        if (s) {
+          setEvents(await getSessionEvents(s.id));
+          setJob(await getSyncJob(s.work_date).catch(() => null));
+        }
       } finally {
         setLoading(false);
       }
@@ -56,6 +66,30 @@ export default function DetalleJornada() {
 
   const items = useMemo(() => buildItems(events, tz), [events, tz]);
   const day = useMemo(() => computeDay(events, new Date()), [events]);
+
+  const syncState: SyncState =
+    job?.status === "synced" ? "synced" : job?.status === "pending" ? "pending" : job?.status === "needs_review" || job?.status === "failed" ? "needs_review" : "local";
+
+  async function sendToSchool() {
+    if (!session) return;
+    const ok = await confirm({
+      title: "¿Enviar este día a la escuela?",
+      message: `Se registrará en la plataforma de la escuela tu jornada del ${formatDateLong(session.work_date + "T12:00:00", tz)}. Primero comprueba que no esté ya fichado.`,
+      confirmText: "Enviar a la escuela",
+    });
+    if (!ok) return;
+    setSending(true);
+    try {
+      const r = await sendClock(session.work_date);
+      toast.show(r.status === "already" ? "Ese día ya estaba fichado en la escuela" : "Enviado y verificado ✓", "success");
+      setJob(await getSyncJob(session.work_date).catch(() => null));
+    } catch (e) {
+      toast.show(e instanceof Error ? e.message : "No se pudo enviar", "error");
+      setJob(await getSyncJob(session.work_date).catch(() => null));
+    } finally {
+      setSending(false);
+    }
+  }
 
   if (loading) return <div className="app screen light"><div className="spinner">Cargando…</div></div>;
   if (!session) return <div className="app screen light"><div className="spinner">Jornada no encontrada.</div></div>;
@@ -72,7 +106,7 @@ export default function DetalleJornada() {
           <div className="card">
             <div className="row between">
               <span className="muted" style={{ fontWeight: 600, textTransform: "capitalize" }}>{formatDateLong(session.work_date + "T12:00:00", tz)}</span>
-              <SyncBadge state="local" />
+              <SyncBadge state={syncState} />
             </div>
             <div className="mono" style={{ fontSize: "2.4rem", fontWeight: 800, marginTop: 8, color: "var(--primary)" }}>
               {formatDuration(session.computed_minutes)}
@@ -104,7 +138,29 @@ export default function DetalleJornada() {
             <div className="inforow"><span className="k">Guardado el</span><span className="v" style={{ textTransform: "capitalize" }}>{formatDateLong(session.created_at, tz)}</span></div>
           </div>
 
-          <button className="btn btn-primary btn-block btn-lg" style={{ marginTop: 16 }} onClick={() => nav("/comparacion")}>
+          <div className="card">
+            <div className="row between" style={{ marginBottom: 6 }}>
+              <div className="h2" style={{ fontSize: "1rem" }}>En la escuela</div>
+              <SyncBadge state={syncState} />
+            </div>
+            {job?.status === "synced" ? (
+              <div className="inforow"><span className="k">Registrado</span><span className="v">{job.method === "already" ? "Ya estaba fichado" : "Enviado y verificado"}{job.start_sent ? ` · ${job.start_sent.slice(0, 5)}–${job.end_sent?.slice(0, 5)}` : ""}</span></div>
+            ) : (
+              <p className="muted small" style={{ marginTop: 0 }}>
+                {job?.last_error ? job.last_error : "Este día aún no se ha enviado a la escuela."}
+              </p>
+            )}
+            {session.status === "closed" && syncState !== "synced" && (
+              <button className="btn btn-primary btn-block btn-lg" style={{ marginTop: 10 }} disabled={sending} onClick={() => void sendToSchool()}>
+                {sending ? "Enviando…" : "Enviar a la escuela"}
+              </button>
+            )}
+            {session.status !== "closed" && (
+              <p className="muted small" style={{ marginTop: 8 }}>Ficha la salida para poder enviar el día.</p>
+            )}
+          </div>
+
+          <button className="btn btn-ghost btn-block btn-lg" style={{ marginTop: 12 }} onClick={() => nav("/comparacion")}>
             Comparar con la escuela
           </button>
         </div>

@@ -144,12 +144,32 @@ create table if not exists public.integration_state (
   updated_at   timestamptz not null default now()
 );
 
+-- Registro de envíos de fichaje a la escuela (Fase B)
+create table if not exists public.sync_jobs (
+  id             uuid primary key default gen_random_uuid(),
+  user_id        uuid not null references auth.users(id) on delete cascade,
+  work_date      date not null,
+  status         text not null default 'pending', -- pending | synced | needs_review | failed
+  method         text,                             -- clock_manual | already
+  start_sent     time,
+  end_sent       time,
+  attempts       integer not null default 0,
+  last_error     text,
+  last_attempt_at timestamptz,
+  created_at     timestamptz not null default now(),
+  updated_at     timestamptz not null default now(),
+  unique (user_id, work_date)
+);
+
 alter table public.platform_records  enable row level security;
 alter table public.integration_state enable row level security;
+alter table public.sync_jobs         enable row level security;
 drop policy if exists pr_rec_select_own on public.platform_records;
 drop policy if exists int_state_select_own on public.integration_state;
+drop policy if exists sj_select_own on public.sync_jobs;
 create policy pr_rec_select_own   on public.platform_records  for select using (auth.uid() = user_id);
 create policy int_state_select_own on public.integration_state for select using (auth.uid() = user_id);
+create policy sj_select_own       on public.sync_jobs         for select using (auth.uid() = user_id);
 -- escrituras solo vía service role (Edge Function), sin políticas para el usuario.
 
 -- ---------- Sello canónico (independiente de la zona de la sesión) -----------
