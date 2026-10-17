@@ -18,7 +18,9 @@ export async function recordTimeEvent(type: ClockType): Promise<TimeEvent> {
 export async function getTodaySession(): Promise<WorkSession | null> {
   const { data, error } = await supabase.rpc("get_today_session", { p_timezone: userTimezone() });
   if (error) throw new Error(error.message);
-  return (data as WorkSession) ?? null;
+  const s = data as WorkSession | null;
+  // Si no hay jornada hoy, la función devuelve una fila con id nulo: tratarla como null.
+  return s && s.id ? s : null;
 }
 
 /** Añade (o corrige) un día con hora de entrada y salida. */

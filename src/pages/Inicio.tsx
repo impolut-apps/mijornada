@@ -5,7 +5,7 @@ import { IcBars, IcChevronR, IcClock, IcCoffee, IcPlay, IcStop, IcSync, IcUser }
 import { SyncBadge } from "../components/SyncBadge";
 import { getProfile, getSessionEvents, getTodaySession, recordTimeEvent } from "../lib/fichaje";
 import { listClasses } from "../lib/classes";
-import { sendClock } from "../lib/school";
+import { getIntegrationState, sendClock, type IntegrationState } from "../lib/school";
 import { getAutoSend } from "../lib/prefs";
 import { SCHOOL_START } from "../lib/config";
 import { computeDay } from "../lib/sessions";
@@ -26,6 +26,7 @@ export default function Inicio() {
   const [now, setNow] = useState(() => new Date());
   const [events, setEvents] = useState<TimeEvent[]>([]);
   const [classes, setClasses] = useState<ClassItem[]>([]);
+  const [integ, setInteg] = useState<IntegrationState | null>(null);
   const [name, setName] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -49,6 +50,7 @@ export default function Inicio() {
   useEffect(() => {
     void load();
     listClasses().then(setClasses).catch(() => {});
+    getIntegrationState().then(setInteg).catch(() => {});
     if (user) getProfile(user.id).then((p) => setName(p?.display_name || user.email?.split("@")[0] || "")).catch(() => {});
   }, [load, user]);
 
@@ -171,7 +173,10 @@ export default function Inicio() {
           <div className="sc-ico"><IcSync width={20} height={20} /></div>
           <div className="grow">
             <div style={{ fontWeight: 700 }}>Conexión con la escuela</div>
-            <div className="sc-state"><span className="dot" style={{ background: "#ffc98a" }} /> Aún no conectada</div>
+            <div className="sc-state">
+              <span className="dot" style={{ background: integ?.connected ? "#5ff0b0" : "#ffc98a" }} />
+              {integ?.connected ? "Conectada" : "Aún no conectada"}
+            </div>
           </div>
         </div>
       </div>

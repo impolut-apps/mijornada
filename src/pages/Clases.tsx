@@ -128,26 +128,39 @@ export default function Clases() {
 
   return (
     <div className="screen light">
-      <div className="page-head">
-        <IcMusic width={26} height={26} style={{ color: "var(--primary)" }} />
-        <h1 className="h1 grow">Clases</h1>
-        {isDesktop && (
-          <div className="pills" style={{ marginRight: 8 }}>
-            <button className={`pill ${view === "week" ? "active" : ""}`} onClick={() => setView("week")}>Semana</button>
-            <button className={`pill ${view === "month" ? "active" : ""}`} onClick={() => setView("month")}>Mes</button>
+      {!isDesktop && (
+        <div className="page-head">
+          <IcMusic width={26} height={26} style={{ color: "var(--primary)" }} />
+          <h1 className="h1 grow">Clases</h1>
+          <button className="btn btn-soft" disabled={syncing} onClick={() => void doSync(false)}>
+            <IcSync width={17} height={17} /> {syncing ? "…" : "Sincronizar"}
+          </button>
+        </div>
+      )}
+
+      <div className={`content ${isDesktop ? "wide" : ""}`} style={{ paddingTop: isDesktop ? 16 : 4 }}>
+        {isDesktop ? (
+          <div className="cal-topbar">
+            <div className="cal-left">
+              <button className="iconbtn" onClick={() => move(-1)}><IcChevronL width={20} height={20} /></button>
+              <div className="cal-period" style={{ textTransform: "capitalize" }}>{periodLabel}</div>
+              <button className="iconbtn" onClick={() => move(1)}><IcChevronR width={20} height={20} /></button>
+            </div>
+            <div className="cal-right">
+              <div className="pills">
+                <button className={`pill ${view === "week" ? "active" : ""}`} onClick={() => setView("week")}>Semana</button>
+                <button className={`pill ${view === "month" ? "active" : ""}`} onClick={() => setView("month")}>Mes</button>
+              </div>
+              <button className="iconbtn" title="Sincronizar" disabled={syncing} onClick={() => void doSync(false)}><IcSync width={18} height={18} /></button>
+            </div>
+          </div>
+        ) : (
+          <div className="cal-nav">
+            <button className="iconbtn" onClick={() => move(-1)}><IcChevronL width={20} height={20} /></button>
+            <div className="cal-period" style={{ textTransform: "capitalize" }}>{periodLabel}</div>
+            <button className="iconbtn" onClick={() => move(1)}><IcChevronR width={20} height={20} /></button>
           </div>
         )}
-        <button className="btn btn-soft" disabled={syncing} onClick={() => void doSync(false)}>
-          <IcSync width={17} height={17} /> {syncing ? "…" : "Sincronizar"}
-        </button>
-      </div>
-
-      <div className={`content ${isDesktop ? "wide" : ""}`} style={{ paddingTop: 4 }}>
-        <div className="cal-nav">
-          <button className="iconbtn" onClick={() => move(-1)}><IcChevronL width={20} height={20} /></button>
-          <div className="cal-period" style={{ textTransform: "capitalize" }}>{periodLabel}</div>
-          <button className="iconbtn" onClick={() => move(1)}><IcChevronR width={20} height={20} /></button>
-        </div>
 
         {/* MÓVIL: semanal (franja de días + tarjetas del día) */}
         {!isDesktop && (
