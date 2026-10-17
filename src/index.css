@@ -490,7 +490,7 @@ code { background: var(--grey-050); padding: 1px 5px; border-radius: 5px; font-s
 
 .month-cal { display: grid; grid-template-columns: repeat(5, 1fr); padding: 0; overflow: hidden; }
 .mc-head { text-align: center; font-size: .75rem; font-weight: 700; color: var(--muted); padding: 10px 0; border-bottom: 1px solid var(--border); }
-.mc-cell { height: 168px; overflow: hidden; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 6px; display: flex; flex-direction: column; gap: 4px; }
+.mc-cell { height: 128px; overflow: hidden; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 6px; display: flex; flex-direction: column; gap: 4px; }
 .mc-cell:nth-child(5n) { border-right: none; }
 .mc-num { font-size: .8rem; font-weight: 700; color: var(--muted); align-self: flex-start; }
 .mc-cell.out .mc-num { opacity: .35; }
@@ -504,7 +504,7 @@ code { background: var(--grey-050); padding: 1px 5px; border-radius: 5px; font-s
 .mc-more { font-size: .72rem; color: var(--primary); font-weight: 700; padding: 2px 4px; background: none; border: none; cursor: pointer; text-align: left; border-radius: 5px; }
 .mc-more:hover { background: var(--primary-050); }
 
-.wk-grid { display: grid; grid-template-columns: repeat(7, 1fr); padding: 0; overflow: hidden; }
+.wk-grid { display: grid; grid-template-columns: repeat(5, 1fr); padding: 0; overflow: hidden; }
 .wk-col { border-right: 1px solid var(--border); min-height: 320px; }
 .wk-col:last-child { border-right: none; }
 .wk-col-head { text-align: center; padding: 10px 0; border-bottom: 1px solid var(--border); }

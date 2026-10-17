@@ -197,12 +197,12 @@ export default function Clases() {
               const k = ymd(d);
               const evs = byDate.get(k) ?? [];
               const out = d.getMonth() !== anchor.getMonth();
-              const extra = evs.length - 3;
+              const extra = evs.length - 2;
               return (
                 <div key={k} className={`mc-cell ${out ? "out" : ""} ${k === today ? "today" : ""}`}>
                   <div className="mc-num">{d.getDate()}</div>
                   <div className="mc-evs">
-                    {evs.slice(0, 3).map((c) => <EvChip key={c.id} c={c} />)}
+                    {evs.slice(0, 2).map((c) => <EvChip key={c.id} c={c} />)}
                     {extra > 0 && (
                       <button className="mc-more" onClick={() => openWeekFor(d)}>+{extra} clase{extra > 1 ? "s" : ""} más</button>
                     )}
@@ -216,7 +216,7 @@ export default function Clases() {
         {/* ESCRITORIO · SEMANA en columnas */}
         {isDesktop && effView === "week" && (
           <div className="wk-grid card">
-            {weekDays(anchor).map((d) => {
+            {weekDays(anchor).slice(0, 5).map((d) => {
               const k = ymd(d);
               const evs = byDate.get(k) ?? [];
               return (
