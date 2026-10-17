@@ -6,9 +6,11 @@ import { AuthProvider } from "./auth/AuthProvider";
 import { ToastProvider } from "./ui/ToastProvider";
 import { ConfirmProvider } from "./ui/ConfirmProvider";
 import { initTheme } from "./lib/theme";
+import { initPwaInstall } from "./lib/pwa";
 import "./index.css";
 
 initTheme();
+initPwaInstall();
 
 // App instalable y disponible sin conexión (solo en la versión publicada).
 if (import.meta.env.PROD && "serviceWorker" in navigator) {

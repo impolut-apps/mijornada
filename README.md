@@ -6,7 +6,7 @@ con la plataforma de la escuela.
 
 - **Frontend:** React + TypeScript (Vite), mobile-first.
 - **Backend/datos:** Supabase (PostgreSQL + Auth + RLS).
-- **Móvil:** APK con Capacitor. **Web:** build `/dist` en Vercel.
+- **PWA** desplegada en Vercel: instalable en móvil y se actualiza sola en cada despliegue.
 
 El informe técnico completo está en [`docs/`](docs/README.md).
 
@@ -38,15 +38,14 @@ npm run preview    # previsualiza el build
 ```
 
 **Vercel:** importa el repo → framework **Vite** → añade las variables `VITE_SUPABASE_URL` y
-`VITE_SUPABASE_ANON_KEY` en Project Settings → Environment Variables. Output dir: `dist`.
+`VITE_SUPABASE_ANON_KEY` en Project Settings → Environment Variables. Cada push a `main` se publica solo.
 
-### 5. APK (Android, Capacitor)
-```bash
-npm run build
-npx cap add android      # solo la primera vez (requiere Android Studio / SDK)
-npm run cap:sync
-npm run cap:android      # abre Android Studio para generar el APK
-```
+### 5. Instalar como app (PWA)
+No hace falta APK ni tienda. Desde el móvil, con la web abierta:
+- **Android (Chrome):** menú **⋮** → *Instalar app* (o el botón "Instalar" en Ajustes).
+- **iPhone (Safari):** **Compartir** → *Añadir a pantalla de inicio*.
+
+Se actualiza sola en cada despliegue; no hay que reinstalar nada.
 
 ## Seguridad
 - Las claves de `.env` (URL + anon) son **públicas** y pueden ir al cliente.

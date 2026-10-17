@@ -5,6 +5,7 @@ import { buildDailyCsv, buildEventsCsv, downloadText, openPrintableReport } from
 import { getEventsForSessions, getProfile, listSessions, upsertProfile, verifyIntegrity } from "../lib/fichaje";
 import { addDays, userTimezone, ymdInTz } from "../lib/time";
 import { applyTheme, getStoredTheme, type Theme } from "../lib/theme";
+import { canInstall, isIos, isStandalone, promptInstall } from "../lib/pwa";
 import { useToast } from "../ui/ToastProvider";
 import { useConfirm } from "../ui/ConfirmProvider";
 import type { TimeEvent } from "../lib/types";
@@ -21,11 +22,28 @@ export default function Ajustes() {
   const [showExport, setShowExport] = useState(false);
   const [working, setWorking] = useState(false);
   const [theme, setTheme] = useState<Theme>(getStoredTheme());
+  const [installable, setInstallable] = useState(canInstall());
 
   function changeTheme(t: Theme) {
     setTheme(t);
     applyTheme(t);
   }
+
+  useEffect(() => {
+    const onReady = () => setInstallable(true);
+    window.addEventListener("pwa-installable", onReady);
+    return () => window.removeEventListener("pwa-installable", onReady);
+  }, []);
+
+  async function install() {
+    const ok = await promptInstall();
+    if (ok) {
+      toast.show("¡App instalada!", "success");
+      setInstallable(false);
+    }
+  }
+
+  const showInstallCard = !isStandalone() && (installable || isIos());
 
   useEffect(() => {
     if (!user) return;
@@ -153,6 +171,26 @@ export default function Ajustes() {
             )}
           </div>
         </div>
+
+        {/* Instalar como app */}
+        {showInstallCard && (
+          <div className="card" style={{ marginTop: 14 }}>
+            <div className="row" style={{ gap: 12 }}>
+              <div className="set-ico"><IcDownload width={19} height={19} /></div>
+              <div className="grow">
+                <div style={{ fontWeight: 700 }}>Instala la app en tu móvil</div>
+                {installable ? (
+                  <div className="muted small">Tendrás su icono en la pantalla de inicio.</div>
+                ) : (
+                  <div className="muted small">En iPhone: pulsa <strong>Compartir</strong> y luego <strong>“Añadir a pantalla de inicio”</strong>.</div>
+                )}
+              </div>
+              {installable && (
+                <button className="btn btn-primary" onClick={() => void install()}>Instalar</button>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Opciones */}
         <div className="card" style={{ padding: 4, marginTop: 14 }}>
