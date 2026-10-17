@@ -97,6 +97,12 @@ export default function Clases() {
     setSelected(ymd(effView === "week" ? weekDays(next)[0] : new Date(next.getFullYear(), next.getMonth(), 1)));
   }
 
+  function openWeekFor(d: Date) {
+    setView("week");
+    setAnchor(d);
+    setSelected(ymd(d));
+  }
+
   const periodLabel = useMemo(() => {
     if (effView === "week") {
       const w = weekDays(anchor);
@@ -186,17 +192,20 @@ export default function Clases() {
         {/* ESCRITORIO · MES tipo calendario (clases dentro de cada día) */}
         {isDesktop && effView === "month" && (
           <div className="month-cal card">
-            {DAY_SHORT.map((d) => <div key={d} className="mc-head">{d}</div>)}
-            {monthMatrix(anchor).flat().map((d) => {
+            {DAY_SHORT.slice(0, 5).map((d) => <div key={d} className="mc-head">{d}</div>)}
+            {monthMatrix(anchor).flatMap((w) => w.slice(0, 5)).map((d) => {
               const k = ymd(d);
               const evs = byDate.get(k) ?? [];
               const out = d.getMonth() !== anchor.getMonth();
+              const extra = evs.length - 3;
               return (
                 <div key={k} className={`mc-cell ${out ? "out" : ""} ${k === today ? "today" : ""}`}>
                   <div className="mc-num">{d.getDate()}</div>
                   <div className="mc-evs">
-                    {evs.slice(0, 4).map((c) => <EvChip key={c.id} c={c} />)}
-                    {evs.length > 4 && <div className="mc-more">+{evs.length - 4} más</div>}
+                    {evs.slice(0, 3).map((c) => <EvChip key={c.id} c={c} />)}
+                    {extra > 0 && (
+                      <button className="mc-more" onClick={() => openWeekFor(d)}>+{extra} clase{extra > 1 ? "s" : ""} más</button>
+                    )}
                   </div>
                 </div>
               );

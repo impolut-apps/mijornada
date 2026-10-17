@@ -8,6 +8,8 @@ import { DOMParser, type Element } from "https://deno.land/x/deno_dom@v0.1.45/de
 const BASE = (Deno.env.get("SCHOOL_BASE_URL") ?? "http://113.30.148.43").replace(/\/$/, "");
 const USERNAME = Deno.env.get("SCHOOL_USERNAME") ?? "";
 const PASSWORD = Deno.env.get("SCHOOL_PASSWORD") ?? "";
+// Los fichajes solo se leen a partir de esta fecha (inicio de uso de la app).
+const START = Deno.env.get("SCHOOL_START") ?? "2026-10-19";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -66,10 +68,12 @@ function toIsoDate(ddmmyyyy: string): string | null {
 }
 
 async function readAttendance(jar: Map<string, string>) {
-  const to = new Date();
-  const from = new Date(to.getTime() - 35 * 86400000);
-  const fmt = (d: Date) => d.toISOString().slice(0, 10);
-  const res = await fetch(`${BASE}/teacher/attendance?from_date=${fmt(from)}&to_date=${fmt(to)}`, {
+  const toD = new Date();
+  const to = toD.toISOString().slice(0, 10);
+  const back = new Date(toD.getTime() - 60 * 86400000).toISOString().slice(0, 10);
+  const from = back < START ? START : back;
+  if (to < from) return []; // aún no se ha llegado a la fecha de inicio
+  const res = await fetch(`${BASE}/teacher/attendance?from_date=${from}&to_date=${to}`, {
     headers: { Cookie: cookieHeader(jar) },
   });
   const doc = new DOMParser().parseFromString(await res.text(), "text/html");

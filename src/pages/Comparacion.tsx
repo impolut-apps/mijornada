@@ -3,7 +3,8 @@ import { IcCheckCircle, IcClock, IcSync } from "../components/icons";
 import { SkeletonCard } from "../components/Skeleton";
 import { listSessions } from "../lib/fichaje";
 import { getIntegrationState, listPlatformRecords, syncSchool, type IntegrationState, type PlatformRecord } from "../lib/school";
-import { addDays, formatDateLong, formatDayShort, formatDuration, formatHM, userTimezone, ymdInTz } from "../lib/time";
+import { SCHOOL_START } from "../lib/config";
+import { formatDateLong, formatDayShort, formatDuration, formatHM, userTimezone, ymdInTz } from "../lib/time";
 import { useToast } from "../ui/ToastProvider";
 import type { WorkSession } from "../lib/types";
 
@@ -24,9 +25,9 @@ export default function Comparacion() {
   const [syncing, setSyncing] = useState(false);
 
   const load = useCallback(async () => {
-    const today = new Date();
-    const from = ymdInTz(addDays(today, -13), tz);
-    const to = ymdInTz(today, tz);
+    // Solo se comparan fichajes desde que se empezó a usar la app.
+    const to = ymdInTz(new Date(), tz);
+    const from = SCHOOL_START;
     const [st, ss, rec] = await Promise.all([
       getIntegrationState().catch(() => null),
       listSessions(from, to).catch(() => []),
