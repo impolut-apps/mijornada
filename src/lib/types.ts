@@ -49,6 +49,9 @@ export interface ClassItem {
   subject: string;
   classroom: string | null;
   students: string[];
+  source_kind: string | null;
+  source_id: string | null;
+  not_delivered: boolean;
   synced_at: string;
   created_at: string;
 }

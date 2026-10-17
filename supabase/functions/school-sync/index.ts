@@ -117,17 +117,25 @@ async function postClockManual(jar: Map<string, string>, day: string, start: str
 async function readClasses(jar: Map<string, string>, from: string, to: string) {
   const res = await fetch(`${BASE}/teacher/history?from_date=${from}&to_date=${to}`, { headers: { Cookie: cookieHeader(jar) } });
   const doc = new DOMParser().parseFromString(await res.text(), "text/html");
-  const nodes = doc?.querySelectorAll(".day-section-head, article.history-class-item") ?? [];
+  const nodes = doc?.querySelectorAll('.day-section-head, form[action="/classes/occurrence-status"], article.history-class-item') ?? [];
   const classes: {
     external_id: string | null; weekday: number; class_date: string | null;
     start_time: string; end_time: string; subject: string; classroom: string | null; students: string[];
+    source_kind: string | null; source_id: string | null; not_delivered: boolean;
   }[] = [];
+  const inputVal = (form: Element, n: string) => form.querySelector(`input[name="${n}"]`)?.getAttribute("value") ?? null;
   let currentDate: string | null = null;
+  let lastForm: { source_kind: string | null; source_id: string | null; not_delivered: boolean } | null = null;
   for (const node of nodes) {
     const el = node as Element;
     if (el.classList.contains("day-section-head")) {
       const dateText = el.querySelector("div:last-child")?.textContent ?? "";
       currentDate = toIsoDate(dateText);
+      continue;
+    }
+    if (el.tagName === "FORM") {
+      // El valor de not_delivered del formulario es el objetivo del botón; "0" => ya está no impartida.
+      lastForm = { source_kind: inputVal(el, "source_kind"), source_id: inputVal(el, "source_id"), not_delivered: inputVal(el, "not_delivered") === "0" };
       continue;
     }
     const subject = el.querySelector("strong")?.textContent.trim() ?? "";
@@ -141,10 +149,63 @@ async function readClasses(jar: Map<string, string>, from: string, to: string) {
       : [];
     const weekday = currentDate ? new Date(currentDate + "T12:00:00Z").getUTCDay() : 0;
     if (subject && start && end) {
-      classes.push({ external_id: null, weekday, class_date: currentDate, start_time: start, end_time: end, subject, classroom, students });
+      classes.push({
+        external_id: null, weekday, class_date: currentDate, start_time: start, end_time: end, subject, classroom, students,
+        source_kind: lastForm?.source_kind ?? null, source_id: lastForm?.source_id ?? null, not_delivered: lastForm?.not_delivered ?? false,
+      });
+      lastForm = null;
     }
   }
   return classes;
+}
+
+/** Lee el estado actual (no impartida) de una clase concreta en la escuela. */
+async function readOccurrenceState(jar: Map<string, string>, eventDate: string, sourceId: string): Promise<boolean | null> {
+  const res = await fetch(`${BASE}/teacher/history?from_date=${eventDate}&to_date=${eventDate}`, { headers: { Cookie: cookieHeader(jar) } });
+  const doc = new DOMParser().parseFromString(await res.text(), "text/html");
+  for (const form of doc?.querySelectorAll('form[action="/classes/occurrence-status"]') ?? []) {
+    const f = form as Element;
+    if (f.querySelector('input[name="source_id"]')?.getAttribute("value") === sourceId &&
+        f.querySelector('input[name="event_date"]')?.getAttribute("value") === eventDate) {
+      return f.querySelector('input[name="not_delivered"]')?.getAttribute("value") === "0";
+    }
+  }
+  return null;
+}
+
+/** Marca/restablece una clase como "no impartida" en la escuela. */
+async function handleOccurrence(admin: Admin, userId: string, classId: string, desired: boolean): Promise<Response> {
+  const { data: cls } = await admin.from("classes").select("id, source_kind, source_id, class_date").eq("id", classId).eq("user_id", userId).maybeSingle();
+  const c = cls as { source_kind: string | null; source_id: string | null; class_date: string | null } | null;
+  if (!c || !c.source_id || !c.class_date) return json({ error: "Esta clase no se puede marcar" }, 400);
+
+  const jar = new Map<string, string>();
+  try {
+    await login(jar);
+  } catch (e) {
+    return json({ error: e instanceof Error ? e.message : "No se pudo conectar" }, 502);
+  }
+
+  const g = await fetch(`${BASE}/teacher/history`, { headers: { Cookie: cookieHeader(jar) } });
+  const csrf = extractCsrf(await g.text());
+  if (!csrf) return json({ error: "No se pudo preparar la acción" }, 502);
+
+  const body = new URLSearchParams({
+    csrf_token: csrf, source_kind: c.source_kind ?? "base", source_id: c.source_id,
+    event_date: c.class_date, return_to: "/teacher/history?", not_delivered: desired ? "1" : "0",
+  });
+  const p = await fetch(`${BASE}/classes/occurrence-status`, {
+    method: "POST", redirect: "manual",
+    headers: { "Content-Type": "application/x-www-form-urlencoded", Cookie: cookieHeader(jar) },
+    body: body.toString(),
+  });
+  mergeCookies(jar, p);
+  if (p.status >= 400 && p.status < 500) return json({ error: `La escuela rechazó la acción (${p.status})` }, 502);
+
+  const state = await readOccurrenceState(jar, c.class_date, c.source_id);
+  const finalState = state ?? desired;
+  await admin.from("classes").update({ not_delivered: finalState }).eq("id", classId);
+  return json({ ok: true, not_delivered: finalState });
 }
 
 type Admin = ReturnType<typeof createClient>;
@@ -215,7 +276,7 @@ Deno.serve(async (req) => {
   try {
     if (!USERNAME || !PASSWORD) return json({ error: "Faltan las credenciales de la escuela en los secretos" }, 400);
 
-    const bodyIn = await req.json().catch(() => ({})) as { from?: string; to?: string; action?: string; day?: string };
+    const bodyIn = await req.json().catch(() => ({})) as { from?: string; to?: string; action?: string; day?: string; class_id?: string; not_delivered?: boolean };
     const dw = defaultWeek();
     const from = /^\d{4}-\d{2}-\d{2}$/.test(bodyIn.from ?? "") ? bodyIn.from! : dw.from;
     const to = /^\d{4}-\d{2}-\d{2}$/.test(bodyIn.to ?? "") ? bodyIn.to! : dw.to;
@@ -233,6 +294,8 @@ Deno.serve(async (req) => {
 
     // Fase B: enviar un fichaje concreto a la escuela.
     if (bodyIn.action === "clock") return await handleClock(admin, user.id, bodyIn.day ?? "");
+    // Marcar/restablecer una clase como "no impartida".
+    if (bodyIn.action === "occurrence") return await handleOccurrence(admin, user.id, bodyIn.class_id ?? "", !!bodyIn.not_delivered);
 
     const jar = new Map<string, string>();
     try {

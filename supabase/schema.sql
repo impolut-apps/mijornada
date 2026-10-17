@@ -106,6 +106,11 @@ create table if not exists public.classes (
   synced_at    timestamptz not null default now(),
   created_at   timestamptz not null default now()
 );
+-- Identificadores de la clase en la escuela (para marcar "no impartida") y estado
+alter table public.classes add column if not exists source_kind   text;
+alter table public.classes add column if not exists source_id     text;
+alter table public.classes add column if not exists not_delivered boolean not null default false;
+
 create index if not exists idx_classes_user on public.classes(user_id, weekday, start_time);
 create unique index if not exists uq_classes_ext on public.classes(user_id, external_id) where external_id is not null;
 

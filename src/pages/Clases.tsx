@@ -121,8 +121,8 @@ export default function Clases() {
 
   const EvChip = ({ c }: { c: ClassItem }) => (
     <button className="ev-chip" onClick={() => setOpenClassId(c.id)} title={`${studentLabel(c)} · ${c.subject} · ${c.classroom ?? ""}`}>
-      <span className="ev-name">{studentLabel(c)}</span>
-      <span className="ev-sub"><span className="ev-time">{c.start_time.slice(0, 5)}</span> {c.subject}</span>
+      <span className="ev-name" style={{ textDecoration: c.not_delivered ? "line-through" : undefined }}>{studentLabel(c)}</span>
+      <span className="ev-sub"><span className="ev-time">{c.start_time.slice(0, 5)}</span> {c.subject}{c.not_delivered ? " · no impartida" : ""}</span>
     </button>
   );
 
@@ -241,8 +241,8 @@ export default function Clases() {
                   <div className="wk-col-body">
                     {evs.length === 0 ? <span className="muted tiny">—</span> : evs.map((c) => (
                       <button key={c.id} className="wk-ev" onClick={() => setOpenClassId(c.id)}>
-                        <div className="wk-ev-name">{studentLabel(c)}</div>
-                        <div className="wk-ev-sub">{c.start_time.slice(0, 5)} · {c.subject}</div>
+                        <div className="wk-ev-name" style={{ textDecoration: c.not_delivered ? "line-through" : undefined }}>{studentLabel(c)}</div>
+                        <div className="wk-ev-sub">{c.start_time.slice(0, 5)} · {c.subject}{c.not_delivered ? " · no impartida" : ""}</div>
                         {c.classroom && <div className="wk-ev-room muted tiny">{c.classroom}</div>}
                       </button>
                     ))}

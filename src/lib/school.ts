@@ -75,6 +75,29 @@ export async function sendClock(day: string): Promise<ClockResult> {
   return d;
 }
 
+/** Marca o restablece una clase como "no impartida" en la escuela. */
+export async function setOccurrence(classId: string, notDelivered: boolean): Promise<{ ok: boolean; not_delivered: boolean }> {
+  const { data, error } = await supabase.functions.invoke("school-sync", {
+    body: { action: "occurrence", class_id: classId, not_delivered: notDelivered },
+  });
+  if (error) {
+    let msg = error.message;
+    try {
+      const ctx = (error as unknown as { context?: Response }).context;
+      if (ctx && typeof ctx.json === "function") {
+        const j = await ctx.json();
+        if (j?.error) msg = j.error;
+      }
+    } catch {
+      /* ignore */
+    }
+    throw new Error(msg || "No se pudo actualizar");
+  }
+  const d = data as { ok?: boolean; not_delivered?: boolean; error?: string };
+  if (d?.error) throw new Error(d.error);
+  return { ok: !!d.ok, not_delivered: !!d.not_delivered };
+}
+
 export async function getSyncJob(day: string): Promise<SyncJob | null> {
   const { data, error } = await supabase.from("sync_jobs").select("*").eq("work_date", day).maybeSingle();
   if (error) throw new Error(error.message);
