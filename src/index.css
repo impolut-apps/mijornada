@@ -484,3 +484,34 @@ code { background: var(--grey-050); padding: 1px 5px; border-radius: 5px; font-s
 .mg-num { font-size: .95rem; }
 .mg-count { font-size: .6rem; background: var(--primary); color: #fff; border-radius: 999px; padding: 0 5px; min-width: 15px; text-align: center; line-height: 1.5; }
 .mg-cell.active .mg-count { background: #fff; color: var(--primary); }
+
+/* ---------- Calendario escritorio tipo Google Calendar ---------- */
+@media (min-width: 900px) { .screen .content.wide { max-width: 1120px; } }
+
+.month-cal { display: grid; grid-template-columns: repeat(7, 1fr); padding: 0; overflow: hidden; }
+.mc-head { text-align: center; font-size: .75rem; font-weight: 700; color: var(--muted); padding: 10px 0; border-bottom: 1px solid var(--border); }
+.mc-cell { min-height: 116px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 6px; display: flex; flex-direction: column; gap: 4px; }
+.mc-cell:nth-child(7n) { border-right: none; }
+.mc-num { font-size: .8rem; font-weight: 700; color: var(--muted); align-self: flex-start; }
+.mc-cell.out .mc-num { opacity: .35; }
+.mc-cell.today .mc-num { background: var(--primary); color: #fff; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; }
+.mc-evs { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.ev-chip { text-align: left; border: none; background: var(--primary-050); color: var(--primary); border-radius: 6px; padding: 3px 6px; font-size: .74rem; font-weight: 600; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
+.ev-chip:hover { background: var(--primary); color: #fff; }
+.ev-time { font-variant-numeric: tabular-nums; opacity: .85; margin-right: 3px; }
+.mc-more { font-size: .7rem; color: var(--muted); padding-left: 4px; }
+
+.wk-grid { display: grid; grid-template-columns: repeat(7, 1fr); padding: 0; overflow: hidden; }
+.wk-col { border-right: 1px solid var(--border); min-height: 320px; }
+.wk-col:last-child { border-right: none; }
+.wk-col-head { text-align: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.wk-col.today .wk-col-head { background: var(--primary-050); }
+.wk-dow { display: block; font-size: .7rem; color: var(--muted); font-weight: 700; }
+.wk-num { font-weight: 800; font-size: 1.1rem; }
+.wk-col.today .wk-num { color: var(--primary); }
+.wk-col-body { padding: 8px; display: flex; flex-direction: column; gap: 8px; }
+.wk-ev { text-align: left; border: none; background: var(--primary-050); border-radius: 10px; padding: 8px 10px; cursor: pointer; color: var(--text); }
+.wk-ev:hover { background: var(--primary); color: #fff; }
+.wk-ev:hover .wk-ev-time, .wk-ev:hover .muted { color: #fff; }
+.wk-ev-time { color: var(--primary); font-weight: 800; font-size: .85rem; }
+.wk-ev-sub { font-weight: 700; font-size: .9rem; margin-top: 1px; }

@@ -14,7 +14,7 @@ export default function Clases() {
   const nav = useNavigate();
   const toast = useToast();
   const isDesktop = useMemo(() => typeof window !== "undefined" && window.matchMedia("(min-width:900px)").matches, []);
-  const [view, setView] = useState<View>(isDesktop ? "month" : "week");
+  const [view, setView] = useState<View>("month");
   const [anchor, setAnchor] = useState<Date>(() => new Date());
   const [selected, setSelected] = useState<string>(() => ymd(new Date()));
   const [classes, setClasses] = useState<ClassItem[]>([]);
@@ -22,14 +22,17 @@ export default function Clases() {
   const [syncing, setSyncing] = useState(false);
   const tried = useRef<Set<string>>(new Set());
 
+  // En móvil, siempre semanal (sin opción de mes).
+  const effView: View = isDesktop ? view : "week";
+
   const range = useMemo(() => {
-    if (view === "week") {
+    if (effView === "week") {
       const w = weekDays(anchor);
       return { from: ymd(w[0]), to: ymd(w[6]) };
     }
     const m = monthMatrix(anchor);
     return { from: ymd(m[0][0]), to: ymd(m[m.length - 1][6]) };
-  }, [view, anchor]);
+  }, [effView, anchor]);
 
   const loadLocal = useCallback(async () => {
     setLoading(true);
@@ -62,7 +65,6 @@ export default function Clases() {
     [range, toast]
   );
 
-  // Auto-sincroniza una vez un rango sin clases (para poder navegar semanas/meses).
   useEffect(() => {
     const key = `${range.from}|${range.to}`;
     if (!loading && classes.length === 0 && !syncing && !tried.current.has(key)) {
@@ -79,28 +81,34 @@ export default function Clases() {
       a.push(c);
       m.set(c.class_date, a);
     }
+    for (const a of m.values()) a.sort((x, y) => x.start_time.localeCompare(y.start_time));
     return m;
   }, [classes]);
 
-  const selectedClasses = (byDate.get(selected) ?? []).slice().sort((a, b) => a.start_time.localeCompare(b.start_time));
-
   function move(dir: number) {
-    const next = view === "week" ? addDays(anchor, dir * 7) : new Date(anchor.getFullYear(), anchor.getMonth() + dir, 1);
+    const next = effView === "week" ? addDays(anchor, dir * 7) : new Date(anchor.getFullYear(), anchor.getMonth() + dir, 1);
     setAnchor(next);
-    setSelected(ymd(view === "week" ? weekDays(next)[0] : new Date(next.getFullYear(), next.getMonth(), 1)));
+    setSelected(ymd(effView === "week" ? weekDays(next)[0] : new Date(next.getFullYear(), next.getMonth(), 1)));
   }
 
   const periodLabel = useMemo(() => {
-    if (view === "week") {
+    if (effView === "week") {
       const w = weekDays(anchor);
       const a = w[0], b = w[6];
       const mA = MONTHS[a.getMonth()].slice(0, 3), mB = MONTHS[b.getMonth()].slice(0, 3);
       return a.getMonth() === b.getMonth() ? `${a.getDate()}–${b.getDate()} ${mA}` : `${a.getDate()} ${mA} – ${b.getDate()} ${mB}`;
     }
     return `${MONTHS[anchor.getMonth()]} ${anchor.getFullYear()}`;
-  }, [view, anchor]);
+  }, [effView, anchor]);
 
   const today = ymd(new Date());
+  const selectedClasses = byDate.get(selected) ?? [];
+
+  const EvChip = ({ c }: { c: ClassItem }) => (
+    <button className="ev-chip" onClick={() => nav(`/clases/${c.id}`)} title={`${c.subject} · ${c.classroom ?? ""}`}>
+      <span className="ev-time">{c.start_time.slice(0, 5)}</span> {c.subject}
+    </button>
+  );
 
   return (
     <div className="screen light">
@@ -118,66 +126,102 @@ export default function Clases() {
         </button>
       </div>
 
-      <div className="content" style={{ paddingTop: 4 }}>
+      <div className={`content ${isDesktop ? "wide" : ""}`} style={{ paddingTop: 4 }}>
         <div className="cal-nav">
           <button className="iconbtn" onClick={() => move(-1)}><IcChevronL width={20} height={20} /></button>
           <div className="cal-period" style={{ textTransform: "capitalize" }}>{periodLabel}</div>
           <button className="iconbtn" onClick={() => move(1)}><IcChevronR width={20} height={20} /></button>
         </div>
 
-        {view === "week" ? (
-          <div className="week-strip">
-            {weekDays(anchor).map((d) => {
-              const k = ymd(d);
-              const n = (byDate.get(k) ?? []).length;
-              return (
-                <button key={k} className={`daychip ${selected === k ? "active" : ""} ${k === today ? "today" : ""}`} onClick={() => setSelected(k)}>
-                  <span className="dc-dow">{DAY_SHORT[(d.getDay() + 6) % 7]}</span>
-                  <span className="dc-num">{d.getDate()}</span>
-                  {n > 0 && <span className="dc-dot" />}
-                </button>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="month-grid card" style={{ padding: 10 }}>
-            {DAY_SHORT.map((d) => <div key={d} className="mg-head">{d}</div>)}
-            {monthMatrix(anchor).flat().map((d) => {
-              const k = ymd(d);
-              const n = (byDate.get(k) ?? []).length;
-              const out = d.getMonth() !== anchor.getMonth();
-              return (
-                <button key={k} className={`mg-cell ${selected === k ? "active" : ""} ${k === today ? "today" : ""} ${out ? "out" : ""}`} onClick={() => setSelected(k)}>
-                  <span className="mg-num">{d.getDate()}</span>
-                  {n > 0 && <span className="mg-count">{n}</span>}
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        <div className="day-h" style={{ marginTop: 18, textTransform: "capitalize" }}>{dayNames(parseYmd(selected))}</div>
-
-        {loading || syncing ? (
-          <SkeletonRows count={3} />
-        ) : selectedClasses.length === 0 ? (
-          <div className="muted small" style={{ padding: "8px 2px" }}>Sin clases este día.</div>
-        ) : (
-          selectedClasses.map((c) => (
-            <div key={c.id} className="class-card press" style={{ cursor: "pointer" }} onClick={() => nav(`/clases/${c.id}`)}>
-              <div className="row between">
-                <div className="row" style={{ gap: 12 }}>
-                  <div className="ctime mono" style={{ minWidth: 52 }}>{c.start_time.slice(0, 5)}</div>
-                  <div>
-                    <div style={{ fontWeight: 700 }}>{c.subject}</div>
-                    <div className="muted small">{c.start_time.slice(0, 5)}–{c.end_time.slice(0, 5)}{c.classroom ? ` · ${c.classroom}` : ""}</div>
+        {/* MÓVIL: semanal (franja de días + tarjetas del día) */}
+        {!isDesktop && (
+          <>
+            <div className="week-strip">
+              {weekDays(anchor).map((d) => {
+                const k = ymd(d);
+                const n = (byDate.get(k) ?? []).length;
+                return (
+                  <button key={k} className={`daychip ${selected === k ? "active" : ""} ${k === today ? "today" : ""}`} onClick={() => setSelected(k)}>
+                    <span className="dc-dow">{DAY_SHORT[(d.getDay() + 6) % 7]}</span>
+                    <span className="dc-num">{d.getDate()}</span>
+                    {n > 0 && <span className="dc-dot" />}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="day-h" style={{ marginTop: 18, textTransform: "capitalize" }}>{dayNames(parseYmd(selected))}</div>
+            {loading || syncing ? (
+              <SkeletonRows count={3} />
+            ) : selectedClasses.length === 0 ? (
+              <div className="muted small" style={{ padding: "8px 2px" }}>Sin clases este día.</div>
+            ) : (
+              selectedClasses.map((c) => (
+                <div key={c.id} className="class-card press" style={{ cursor: "pointer" }} onClick={() => nav(`/clases/${c.id}`)}>
+                  <div className="row between">
+                    <div className="row" style={{ gap: 12 }}>
+                      <div className="ctime mono" style={{ minWidth: 52 }}>{c.start_time.slice(0, 5)}</div>
+                      <div>
+                        <div style={{ fontWeight: 700 }}>{c.subject}</div>
+                        <div className="muted small">{c.start_time.slice(0, 5)}–{c.end_time.slice(0, 5)}{c.classroom ? ` · ${c.classroom}` : ""}</div>
+                      </div>
+                    </div>
+                    <span className="row muted small" style={{ gap: 5 }}><IcUser width={14} height={14} /> {c.students.length}</span>
                   </div>
                 </div>
-                <span className="row muted small" style={{ gap: 5 }}><IcUser width={14} height={14} /> {c.students.length}</span>
-              </div>
-            </div>
-          ))
+              ))
+            )}
+          </>
         )}
+
+        {/* ESCRITORIO · MES tipo calendario (clases dentro de cada día) */}
+        {isDesktop && effView === "month" && (
+          <div className="month-cal card">
+            {DAY_SHORT.map((d) => <div key={d} className="mc-head">{d}</div>)}
+            {monthMatrix(anchor).flat().map((d) => {
+              const k = ymd(d);
+              const evs = byDate.get(k) ?? [];
+              const out = d.getMonth() !== anchor.getMonth();
+              return (
+                <div key={k} className={`mc-cell ${out ? "out" : ""} ${k === today ? "today" : ""}`}>
+                  <div className="mc-num">{d.getDate()}</div>
+                  <div className="mc-evs">
+                    {evs.slice(0, 4).map((c) => <EvChip key={c.id} c={c} />)}
+                    {evs.length > 4 && <div className="mc-more">+{evs.length - 4} más</div>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* ESCRITORIO · SEMANA en columnas */}
+        {isDesktop && effView === "week" && (
+          <div className="wk-grid card">
+            {weekDays(anchor).map((d) => {
+              const k = ymd(d);
+              const evs = byDate.get(k) ?? [];
+              return (
+                <div key={k} className={`wk-col ${k === today ? "today" : ""}`}>
+                  <div className="wk-col-head">
+                    <span className="wk-dow">{DAY_SHORT[(d.getDay() + 6) % 7]}</span>
+                    <span className="wk-num">{d.getDate()}</span>
+                  </div>
+                  <div className="wk-col-body">
+                    {evs.length === 0 ? <span className="muted tiny">—</span> : evs.map((c) => (
+                      <button key={c.id} className="wk-ev" onClick={() => nav(`/clases/${c.id}`)}>
+                        <div className="wk-ev-time mono">{c.start_time.slice(0, 5)}</div>
+                        <div className="wk-ev-sub">{c.subject}</div>
+                        {c.classroom && <div className="wk-ev-room muted tiny">{c.classroom}</div>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {isDesktop && (loading || syncing) && <div style={{ marginTop: 12 }}><SkeletonRows count={2} /></div>}
       </div>
     </div>
   );
