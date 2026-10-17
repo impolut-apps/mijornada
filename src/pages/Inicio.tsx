@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
-import { IcBars, IcClock, IcCoffee, IcPlay, IcStop, IcSync, IcUser } from "../components/icons";
+import { IcBars, IcChevronR, IcClock, IcCoffee, IcPlay, IcStop, IcSync, IcUser } from "../components/icons";
 import { SyncBadge } from "../components/SyncBadge";
 import { getProfile, getSessionEvents, getTodaySession, recordTimeEvent } from "../lib/fichaje";
+import { listClasses } from "../lib/classes";
 import { computeDay } from "../lib/sessions";
 import { formatDateLong, formatDuration, formatHM, formatHMS, userTimezone } from "../lib/time";
 import { haptic } from "../lib/haptics";
 import { useToast } from "../ui/ToastProvider";
 import { useConfirm } from "../ui/ConfirmProvider";
-import type { TimeEvent } from "../lib/types";
+import type { ClassItem, TimeEvent } from "../lib/types";
 
 type ClockType = "clock_in" | "clock_out" | "break_start" | "break_end";
 
@@ -16,9 +18,11 @@ export default function Inicio() {
   const { user } = useAuth();
   const toast = useToast();
   const confirm = useConfirm();
+  const nav = useNavigate();
   const tz = userTimezone();
   const [now, setNow] = useState(() => new Date());
   const [events, setEvents] = useState<TimeEvent[]>([]);
+  const [classes, setClasses] = useState<ClassItem[]>([]);
   const [name, setName] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -41,11 +45,45 @@ export default function Inicio() {
 
   useEffect(() => {
     void load();
+    listClasses().then(setClasses).catch(() => {});
     if (user) getProfile(user.id).then((p) => setName(p?.display_name || user.email?.split("@")[0] || "")).catch(() => {});
   }, [load, user]);
 
   const day = useMemo(() => computeDay(events, now), [events, now]);
   const lastEvent = events[events.length - 1] ?? null;
+  const todayClasses = useMemo(
+    () => classes.filter((c) => c.weekday === now.getDay()).sort((a, b) => a.start_time.localeCompare(b.start_time)),
+    [classes, now]
+  );
+
+  const classesCard = (
+    <div className="card" style={{ marginTop: 16 }}>
+      <div className="row between" style={{ marginBottom: todayClasses.length ? 12 : 0 }}>
+        <div className="h2" style={{ fontSize: "1rem" }}>Mis clases de hoy</div>
+        <button className="btn btn-soft small" onClick={() => nav("/clases")}>Ver horario <IcChevronR width={14} height={14} /></button>
+      </div>
+      {todayClasses.length === 0 ? (
+        <div className="muted small">
+          {classes.length === 0 ? "Aparecerán al conectar con la escuela." : "No tienes clases hoy. 🎉"}
+        </div>
+      ) : (
+        todayClasses.map((c) => (
+          <div className="class-row" key={c.id}>
+            <div className="ctime mono">{c.start_time.slice(0, 5)}</div>
+            <div className="grow">
+              <div style={{ fontWeight: 700 }}>{c.subject}</div>
+              <div className="muted tiny">{c.end_time.slice(0, 5)}{c.classroom ? ` · ${c.classroom}` : ""}</div>
+              {c.students.length > 0 && (
+                <div className="chips" style={{ marginTop: 6 }}>
+                  {c.students.map((s, i) => (<span className="chip" key={i}><IcUser width={11} height={11} /> {s}</span>))}
+                </div>
+              )}
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  );
 
   async function clock(type: ClockType) {
     if (type === "clock_out") {
@@ -109,6 +147,8 @@ export default function Inicio() {
               Fichar entrada
             </button>
           </div>
+
+          {classesCard}
         </div>
 
         <div className="sync-card">
@@ -181,6 +221,8 @@ export default function Inicio() {
             </span>
           </div>
         </div>
+
+        {classesCard}
       </div>
     </div>
   );

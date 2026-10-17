@@ -38,6 +38,21 @@ export interface Profile {
   updated_at: string;
 }
 
+export interface ClassItem {
+  id: string;
+  user_id: string;
+  external_id: string | null;
+  weekday: number; // 0=domingo .. 6=sábado
+  class_date: string | null;
+  start_time: string; // "HH:MM"
+  end_time: string; // "HH:MM"
+  subject: string;
+  classroom: string | null;
+  students: string[];
+  synced_at: string;
+  created_at: string;
+}
+
 /** Estado de la jornada en curso. */
 export type DayState = "idle" | "working" | "onbreak";
 

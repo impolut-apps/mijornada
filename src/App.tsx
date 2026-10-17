@@ -5,10 +5,9 @@ import AppLayout from "./components/AppLayout";
 import Sidebar from "./components/Sidebar";
 import { getProfile } from "./lib/fichaje";
 import Ajustes from "./pages/Ajustes";
+import Clases from "./pages/Clases";
 import Comparacion from "./pages/Comparacion";
-import DetalleEvento from "./pages/DetalleEvento";
 import DetalleJornada from "./pages/DetalleJornada";
-import Evidencias from "./pages/Evidencias";
 import Historial from "./pages/Historial";
 import Inicio from "./pages/Inicio";
 import Login from "./pages/Login";
@@ -54,13 +53,12 @@ function AuthedApp() {
       <Route path="/login" element={<Navigate to="/" replace />} />
       <Route element={<AppLayout />}>
         <Route index element={<Inicio />} />
+        <Route path="clases" element={<Clases />} />
         <Route path="historial" element={<Historial />} />
-        <Route path="evidencias" element={<Evidencias />} />
+        <Route path="comparacion" element={<Comparacion />} />
         <Route path="ajustes" element={<Ajustes />} />
       </Route>
       <Route path="historial/:id" element={<DetalleJornada />} />
-      <Route path="evidencias/:id" element={<DetalleEvento />} />
-      <Route path="comparacion" element={<Comparacion />} />
       <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>

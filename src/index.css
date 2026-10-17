@@ -437,3 +437,23 @@ code { background: var(--grey-050); padding: 1px 5px; border-radius: 5px; font-s
 .hlogo.on-purple { background: #fff; color: var(--primary); }
 .only-mobile { display: inline-flex; }
 @media (min-width: 900px) { .only-mobile { display: none !important; } }
+
+/* ---------- Clases / horario ---------- */
+.field select, .field textarea {
+  padding: 13px 14px; border-radius: 13px; border: 1px solid var(--border);
+  background: #fbfbfe; color: var(--text); font-size: 1rem; font-family: inherit; width: 100%;
+}
+.field select:focus, .field textarea:focus { outline: 2px solid var(--primary); outline-offset: 1px; }
+:root[data-theme="dark"] .field select, :root[data-theme="dark"] .field textarea { background: #11152358; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .field select, :root:not([data-theme="light"]) .field textarea { background: #11152358; }
+}
+
+.day-h { font-weight: 800; font-size: .8rem; color: var(--muted); margin: 0 0 8px 2px; text-transform: uppercase; letter-spacing: .04em; }
+.class-card { background: var(--card); border-radius: var(--radius-sm); box-shadow: var(--shadow-sm); padding: 14px 16px; }
+.class-card + .class-card { margin-top: 10px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { display: inline-flex; align-items: center; gap: 5px; background: var(--primary-050); color: var(--primary); padding: 4px 9px; border-radius: 999px; font-size: .78rem; font-weight: 600; }
+.class-row { display: flex; gap: 12px; padding: 11px 0; border-top: 1px solid var(--border); }
+.class-row:first-of-type { border-top: none; padding-top: 0; }
+.ctime { font-weight: 800; color: var(--primary); min-width: 46px; font-variant-numeric: tabular-nums; }

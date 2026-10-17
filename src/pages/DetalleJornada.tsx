@@ -104,8 +104,8 @@ export default function DetalleJornada() {
             <div className="inforow"><span className="k">Guardado el</span><span className="v" style={{ textTransform: "capitalize" }}>{formatDateLong(session.created_at, tz)}</span></div>
           </div>
 
-          <button className="btn btn-primary btn-block btn-lg" style={{ marginTop: 16 }} onClick={() => nav("/evidencias")}>
-            Ver las pruebas
+          <button className="btn btn-primary btn-block btn-lg" style={{ marginTop: 16 }} onClick={() => nav("/comparacion")}>
+            Comparar con la escuela
           </button>
         </div>
       </div>

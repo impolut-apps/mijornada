@@ -87,6 +87,36 @@ create policy pr_select_own on public.profiles for select using (auth.uid() = us
 create policy pr_insert_own on public.profiles for insert with check (auth.uid() = user_id);
 create policy pr_update_own on public.profiles for update using (auth.uid() = user_id);
 
+-- ---------- Clases (espejo de SOLO LECTURA de las clases de la escuela) -------
+-- Las clases las crea el administrador en la plataforma de la escuela. Nuestra
+-- app NO las crea: la integración (service role) las vuelca aquí y el profesor
+-- solo las LEE. Por eso solo hay política de SELECT para el usuario.
+
+create table if not exists public.classes (
+  id           uuid primary key default gen_random_uuid(),
+  user_id      uuid not null references auth.users(id) on delete cascade,
+  external_id  text,                 -- id de la clase en la escuela (para no duplicar)
+  weekday      smallint not null check (weekday between 0 and 6), -- 0=domingo .. 6=sábado
+  class_date   date,                 -- opcional, si la escuela da fecha concreta
+  start_time   time not null,
+  end_time     time not null,
+  subject      text not null,
+  classroom    text,
+  students     text[] not null default '{}',
+  synced_at    timestamptz not null default now(),
+  created_at   timestamptz not null default now()
+);
+create index if not exists idx_classes_user on public.classes(user_id, weekday, start_time);
+create unique index if not exists uq_classes_ext on public.classes(user_id, external_id) where external_id is not null;
+
+alter table public.classes enable row level security;
+drop policy if exists cl_select_own on public.classes;
+drop policy if exists cl_insert_own on public.classes;
+drop policy if exists cl_update_own on public.classes;
+drop policy if exists cl_delete_own on public.classes;
+-- Solo lectura para el usuario; la integración escribe con service role (sin RLS).
+create policy cl_select_own on public.classes for select using (auth.uid() = user_id);
+
 -- ---------- Sello canónico (independiente de la zona de la sesión) -----------
 
 create or replace function public.canon_stamp(p_prev text, p_type text, p_ts timestamptz, p_session uuid, p_user uuid)
