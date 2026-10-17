@@ -5,6 +5,9 @@ import { IcBars, IcChevronR, IcClock, IcCoffee, IcPlay, IcStop, IcSync, IcUser }
 import { SyncBadge } from "../components/SyncBadge";
 import { getProfile, getSessionEvents, getTodaySession, recordTimeEvent } from "../lib/fichaje";
 import { listClasses } from "../lib/classes";
+import { sendClock } from "../lib/school";
+import { getAutoSend } from "../lib/prefs";
+import { SCHOOL_START } from "../lib/config";
 import { computeDay } from "../lib/sessions";
 import { formatDateLong, formatDuration, formatHM, formatHMS, userTimezone, ymdInTz } from "../lib/time";
 import { haptic } from "../lib/haptics";
@@ -110,6 +113,17 @@ export default function Inicio() {
       };
       toast.show(msg[type], "success");
       await load();
+
+      // Al fichar salida, enviar automáticamente a la escuela (solo desde la fecha de inicio).
+      if (type === "clock_out") {
+        const d = ymdInTz(new Date(), tz);
+        if (getAutoSend() && d >= SCHOOL_START) {
+          toast.show("Enviando a la escuela…", "info");
+          sendClock(d)
+            .then((r) => toast.show(r.status === "already" ? "Ya constaba en la escuela" : "Fichaje enviado a la escuela ✓", "success"))
+            .catch((e) => toast.show(`No se pudo enviar a la escuela: ${e instanceof Error ? e.message : ""}`, "error"));
+        }
+      }
     } catch (e) {
       toast.show(e instanceof Error ? e.message : "No se pudo registrar", "error");
     } finally {

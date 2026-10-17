@@ -4,6 +4,7 @@ import { IcBell, IcChevronR, IcClock, IcDownload, IcLogout, IcPlug, IcSettings, 
 import { buildDailyCsv, buildEventsCsv, downloadText, openPrintableReport } from "../lib/export";
 import { getEventsForSessions, getProfile, listSessions, upsertProfile, verifyIntegrity } from "../lib/fichaje";
 import { getIntegrationState, syncSchool, type IntegrationState } from "../lib/school";
+import { getAutoSend, setAutoSend } from "../lib/prefs";
 import { addDays, formatHM, userTimezone, ymdInTz } from "../lib/time";
 import { applyTheme, getStoredTheme, type Theme } from "../lib/theme";
 import { canInstall, isIos, isStandalone, promptInstall } from "../lib/pwa";
@@ -26,6 +27,13 @@ export default function Ajustes() {
   const [installable, setInstallable] = useState(canInstall());
   const [integ, setInteg] = useState<IntegrationState | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [autoSend, setAutoSendState] = useState(getAutoSend());
+
+  function toggleAutoSend() {
+    const v = !autoSend;
+    setAutoSendState(v);
+    setAutoSend(v);
+  }
 
   useEffect(() => {
     getIntegrationState().then(setInteg).catch(() => {});
@@ -252,6 +260,11 @@ export default function Ajustes() {
             <div className="set-ico"><IcSync width={19} height={19} /></div>
             <div className="grow"><div className="st">Sincronizar con la escuela</div><div className="ss">{syncing ? "Sincronizando…" : "Traer clases y fichajes"}</div></div>
             <IcChevronR className="chev" style={{ color: "var(--muted)" }} />
+          </div>
+          <div className="set-row" style={{ cursor: "pointer" }} onClick={toggleAutoSend}>
+            <div className="set-ico" style={{ background: "var(--green-050)", color: "var(--green-700)" }}><IcPlug width={19} height={19} /></div>
+            <div className="grow"><div className="st">Fichar también en la escuela</div><div className="ss">Al fichar salida, se envía solo</div></div>
+            <span className={`switch ${autoSend ? "on" : ""}`}><span className="knob" /></span>
           </div>
           <div className="set-row">
             <div className="set-ico"><IcBell width={19} height={19} /></div>
