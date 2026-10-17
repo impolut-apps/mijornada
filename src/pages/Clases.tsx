@@ -13,7 +13,13 @@ type View = "week" | "month";
 export default function Clases() {
   const nav = useNavigate();
   const toast = useToast();
-  const isDesktop = useMemo(() => typeof window !== "undefined" && window.matchMedia("(min-width:900px)").matches, []);
+  const [isDesktop, setIsDesktop] = useState(() => typeof window !== "undefined" && window.matchMedia("(min-width:900px)").matches);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width:900px)");
+    const on = () => setIsDesktop(mq.matches);
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
   const [view, setView] = useState<View>("month");
   const [anchor, setAnchor] = useState<Date>(() => new Date());
   const [selected, setSelected] = useState<string>(() => ymd(new Date()));
@@ -104,9 +110,13 @@ export default function Clases() {
   const today = ymd(new Date());
   const selectedClasses = byDate.get(selected) ?? [];
 
+  const studentLabel = (c: ClassItem) =>
+    c.students.length ? c.students[0] + (c.students.length > 1 ? ` +${c.students.length - 1}` : "") : "Sin alumno";
+
   const EvChip = ({ c }: { c: ClassItem }) => (
-    <button className="ev-chip" onClick={() => nav(`/clases/${c.id}`)} title={`${c.subject} · ${c.classroom ?? ""}`}>
-      <span className="ev-time">{c.start_time.slice(0, 5)}</span> {c.subject}
+    <button className="ev-chip" onClick={() => nav(`/clases/${c.id}`)} title={`${studentLabel(c)} · ${c.subject} · ${c.classroom ?? ""}`}>
+      <span className="ev-name">{studentLabel(c)}</span>
+      <span className="ev-sub"><span className="ev-time">{c.start_time.slice(0, 5)}</span> {c.subject}</span>
     </button>
   );
 
@@ -209,8 +219,8 @@ export default function Clases() {
                   <div className="wk-col-body">
                     {evs.length === 0 ? <span className="muted tiny">—</span> : evs.map((c) => (
                       <button key={c.id} className="wk-ev" onClick={() => nav(`/clases/${c.id}`)}>
-                        <div className="wk-ev-time mono">{c.start_time.slice(0, 5)}</div>
-                        <div className="wk-ev-sub">{c.subject}</div>
+                        <div className="wk-ev-name">{studentLabel(c)}</div>
+                        <div className="wk-ev-sub">{c.start_time.slice(0, 5)} · {c.subject}</div>
                         {c.classroom && <div className="wk-ev-room muted tiny">{c.classroom}</div>}
                       </button>
                     ))}
