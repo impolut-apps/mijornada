@@ -1,0 +1,13 @@
+{
+  "name": "MiJornada — Fichaje",
+  "short_name": "MiJornada",
+  "description": "Registro horario independiente, verificable y exportable.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#4a36ab",
+  "theme_color": "#5b4bd6",
+  "lang": "es",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

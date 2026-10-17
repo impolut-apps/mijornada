@@ -1,0 +1,19 @@
+node_modules
+dist
+dist-ssr
+*.local
+.env
+.env.*
+!.env.example
+.DS_Store
+*.log
+android/app/build
+android/.gradle
+android/local.properties
+.vercel
+coverage
+
+# Artefactos de compilación TS/Vite
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
