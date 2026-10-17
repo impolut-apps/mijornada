@@ -85,8 +85,8 @@ async function readAttendance(jar: Map<string, string>) {
   return rows;
 }
 
-async function readClasses(jar: Map<string, string>) {
-  const res = await fetch(`${BASE}/teacher/history`, { headers: { Cookie: cookieHeader(jar) } });
+async function readClasses(jar: Map<string, string>, from: string, to: string) {
+  const res = await fetch(`${BASE}/teacher/history?from_date=${from}&to_date=${to}`, { headers: { Cookie: cookieHeader(jar) } });
   const doc = new DOMParser().parseFromString(await res.text(), "text/html");
   const nodes = doc?.querySelectorAll(".day-section-head, article.history-class-item") ?? [];
   const classes: {
@@ -118,10 +118,24 @@ async function readClasses(jar: Map<string, string>) {
   return classes;
 }
 
+function defaultWeek(): { from: string; to: string } {
+  const d = new Date();
+  const dow = (d.getUTCDay() + 6) % 7; // 0 = lunes
+  const mon = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - dow));
+  const sun = new Date(mon.getTime() + 6 * 86400000);
+  const fmt = (x: Date) => x.toISOString().slice(0, 10);
+  return { from: fmt(mon), to: fmt(sun) };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
     if (!USERNAME || !PASSWORD) return json({ error: "Faltan las credenciales de la escuela en los secretos" }, 400);
+
+    const bodyIn = await req.json().catch(() => ({})) as { from?: string; to?: string };
+    const dw = defaultWeek();
+    const from = /^\d{4}-\d{2}-\d{2}$/.test(bodyIn.from ?? "") ? bodyIn.from! : dw.from;
+    const to = /^\d{4}-\d{2}-\d{2}$/.test(bodyIn.to ?? "") ? bodyIn.to! : dw.to;
 
     const authHeader = req.headers.get("Authorization") ?? "";
     const supaUrl = Deno.env.get("SUPABASE_URL")!;
@@ -145,10 +159,10 @@ Deno.serve(async (req) => {
       return json({ error: msg }, 502);
     }
 
-    const [attendance, classes] = await Promise.all([readAttendance(jar), readClasses(jar)]);
+    const [attendance, classes] = await Promise.all([readAttendance(jar), readClasses(jar, from, to)]);
 
-    // Clases: refrescar el horario (borrar e insertar lo leído)
-    await admin.from("classes").delete().eq("user_id", user.id);
+    // Clases: refrescar SOLO el rango pedido (borrar ese rango e insertar lo leído)
+    await admin.from("classes").delete().eq("user_id", user.id).gte("class_date", from).lte("class_date", to);
     if (classes.length) {
       await admin.from("classes").insert(classes.map((c) => ({ ...c, user_id: user.id, synced_at: new Date().toISOString() })));
     }

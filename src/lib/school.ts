@@ -19,9 +19,9 @@ export interface PlatformRecord {
   fetched_at: string;
 }
 
-/** Lanza la sincronización (solo lectura) con la escuela a través de la Edge Function. */
-export async function syncSchool(): Promise<{ ok: boolean; classes: number; attendance: number }> {
-  const { data, error } = await supabase.functions.invoke("school-sync", { body: {} });
+/** Lanza la sincronización (solo lectura) con la escuela. Opcionalmente para un rango de fechas. */
+export async function syncSchool(range?: { from: string; to: string }): Promise<{ ok: boolean; classes: number; attendance: number }> {
+  const { data, error } = await supabase.functions.invoke("school-sync", { body: range ?? {} });
   if (error) {
     // Intentar extraer el mensaje de error devuelto por la función
     let msg = error.message;

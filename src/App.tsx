@@ -6,6 +6,7 @@ import Sidebar from "./components/Sidebar";
 import { getProfile } from "./lib/fichaje";
 import Ajustes from "./pages/Ajustes";
 import Clases from "./pages/Clases";
+import ClaseDetalle from "./pages/ClaseDetalle";
 import Comparacion from "./pages/Comparacion";
 import DetalleJornada from "./pages/DetalleJornada";
 import Historial from "./pages/Historial";
@@ -59,6 +60,7 @@ function AuthedApp() {
         <Route path="ajustes" element={<Ajustes />} />
       </Route>
       <Route path="historial/:id" element={<DetalleJornada />} />
+      <Route path="clases/:id" element={<ClaseDetalle />} />
       <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>

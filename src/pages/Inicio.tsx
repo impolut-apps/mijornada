@@ -6,7 +6,7 @@ import { SyncBadge } from "../components/SyncBadge";
 import { getProfile, getSessionEvents, getTodaySession, recordTimeEvent } from "../lib/fichaje";
 import { listClasses } from "../lib/classes";
 import { computeDay } from "../lib/sessions";
-import { formatDateLong, formatDuration, formatHM, formatHMS, userTimezone } from "../lib/time";
+import { formatDateLong, formatDuration, formatHM, formatHMS, userTimezone, ymdInTz } from "../lib/time";
 import { haptic } from "../lib/haptics";
 import { useToast } from "../ui/ToastProvider";
 import { useConfirm } from "../ui/ConfirmProvider";
@@ -51,10 +51,12 @@ export default function Inicio() {
 
   const day = useMemo(() => computeDay(events, now), [events, now]);
   const lastEvent = events[events.length - 1] ?? null;
-  const todayClasses = useMemo(
-    () => classes.filter((c) => c.weekday === now.getDay()).sort((a, b) => a.start_time.localeCompare(b.start_time)),
-    [classes, now]
-  );
+  const todayClasses = useMemo(() => {
+    const todayYmd = ymdInTz(now, tz);
+    return classes
+      .filter((c) => c.class_date === todayYmd)
+      .sort((a, b) => a.start_time.localeCompare(b.start_time));
+  }, [classes, now, tz]);
 
   const classesCard = (
     <div className="card" style={{ marginTop: 16 }}>
