@@ -117,6 +117,41 @@ drop policy if exists cl_delete_own on public.classes;
 -- Solo lectura para el usuario; la integración escribe con service role (sin RLS).
 create policy cl_select_own on public.classes for select using (auth.uid() = user_id);
 
+-- ---------- Integración con la escuela: caché y estado (solo lectura app) -----
+-- La Edge Function (service role) escribe aquí tras leer la plataforma; el
+-- usuario solo LEE. Las credenciales de la escuela NO se guardan en la BD:
+-- van en los secretos de la Edge Function.
+
+create table if not exists public.platform_records (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  work_date  date not null,
+  entrada    time,
+  salida     time,
+  horas      numeric,
+  raw_hash   text,
+  fetched_at timestamptz not null default now(),
+  unique (user_id, work_date)
+);
+create index if not exists idx_platform_records_user on public.platform_records(user_id, work_date);
+
+create table if not exists public.integration_state (
+  user_id      uuid primary key references auth.users(id) on delete cascade,
+  connected    boolean not null default false,
+  last_sync_at timestamptz,
+  last_status  text,
+  last_error   text,
+  updated_at   timestamptz not null default now()
+);
+
+alter table public.platform_records  enable row level security;
+alter table public.integration_state enable row level security;
+drop policy if exists pr_rec_select_own on public.platform_records;
+drop policy if exists int_state_select_own on public.integration_state;
+create policy pr_rec_select_own   on public.platform_records  for select using (auth.uid() = user_id);
+create policy int_state_select_own on public.integration_state for select using (auth.uid() = user_id);
+-- escrituras solo vía service role (Edge Function), sin políticas para el usuario.
+
 -- ---------- Sello canónico (independiente de la zona de la sesión) -----------
 
 create or replace function public.canon_stamp(p_prev text, p_type text, p_ts timestamptz, p_session uuid, p_user uuid)

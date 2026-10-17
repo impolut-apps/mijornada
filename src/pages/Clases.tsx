@@ -44,10 +44,12 @@ export default function Clases() {
           Tu horario de clases, tal y como lo tiene la escuela.
         </p>
 
-        <div className="notice" style={{ marginBottom: 14 }}>
-          <IcClock width={18} height={18} />
-          Tus clases aparecerán aquí automáticamente cuando conectemos tu app con la escuela. Las crea la escuela; aquí solo las consultas.
-        </div>
+        {!loading && classes.length === 0 && (
+          <div className="notice" style={{ marginBottom: 14 }}>
+            <IcClock width={18} height={18} />
+            Aún no hay clases. Ve a <strong>&nbsp;Escuela&nbsp;</strong> y pulsa <strong>&nbsp;Sincronizar&nbsp;</strong> para traer tu horario. Las crea la escuela; aquí solo las consultas.
+          </div>
+        )}
 
         {loading ? (
           <SkeletonRows count={4} />

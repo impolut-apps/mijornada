@@ -3,7 +3,8 @@ import { useAuth } from "../auth/AuthProvider";
 import { IcBell, IcChevronR, IcClock, IcDownload, IcLogout, IcPlug, IcSettings, IcShield, IcSync, IcUser } from "../components/icons";
 import { buildDailyCsv, buildEventsCsv, downloadText, openPrintableReport } from "../lib/export";
 import { getEventsForSessions, getProfile, listSessions, upsertProfile, verifyIntegrity } from "../lib/fichaje";
-import { addDays, userTimezone, ymdInTz } from "../lib/time";
+import { getIntegrationState, syncSchool, type IntegrationState } from "../lib/school";
+import { addDays, formatHM, userTimezone, ymdInTz } from "../lib/time";
 import { applyTheme, getStoredTheme, type Theme } from "../lib/theme";
 import { canInstall, isIos, isStandalone, promptInstall } from "../lib/pwa";
 import { useToast } from "../ui/ToastProvider";
@@ -23,6 +24,25 @@ export default function Ajustes() {
   const [working, setWorking] = useState(false);
   const [theme, setTheme] = useState<Theme>(getStoredTheme());
   const [installable, setInstallable] = useState(canInstall());
+  const [integ, setInteg] = useState<IntegrationState | null>(null);
+  const [syncing, setSyncing] = useState(false);
+
+  useEffect(() => {
+    getIntegrationState().then(setInteg).catch(() => {});
+  }, []);
+
+  async function syncNow() {
+    setSyncing(true);
+    try {
+      const r = await syncSchool();
+      toast.show(`Sincronizado: ${r.classes} clases, ${r.attendance} días`, "success");
+      setInteg(await getIntegrationState().catch(() => null));
+    } catch (e) {
+      toast.show(e instanceof Error ? e.message : "No se pudo sincronizar", "error");
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   function changeTheme(t: Theme) {
     setTheme(t);
@@ -222,12 +242,16 @@ export default function Ajustes() {
             </div>
           )}
           <div className="set-row">
-            <div className="set-ico" style={{ background: "#fdf1df", color: "var(--amber)" }}><IcPlug width={19} height={19} /></div>
-            <div className="grow"><div className="st">Conexión con la escuela</div><div className="ss">Aún no conectada</div></div>
+            <div className="set-ico" style={{ background: integ?.connected ? "var(--green-050)" : "#fdf1df", color: integ?.connected ? "var(--green-700)" : "var(--amber)" }}><IcPlug width={19} height={19} /></div>
+            <div className="grow">
+              <div className="st">Conexión con la escuela</div>
+              <div className="ss">{integ?.connected ? `Conectada${integ.last_sync_at ? ` · ${formatHM(integ.last_sync_at, tz)}` : ""}` : "Sin conectar todavía"}</div>
+            </div>
           </div>
-          <div className="set-row" style={{ opacity: 0.6, cursor: "default" }}>
+          <div className="set-row press" onClick={() => void syncNow()}>
             <div className="set-ico"><IcSync width={19} height={19} /></div>
-            <div className="grow"><div className="st">Probar la conexión</div><div className="ss">Disponible cuando se conecte la escuela</div></div>
+            <div className="grow"><div className="st">Sincronizar con la escuela</div><div className="ss">{syncing ? "Sincronizando…" : "Traer clases y fichajes"}</div></div>
+            <IcChevronR className="chev" style={{ color: "var(--muted)" }} />
           </div>
           <div className="set-row">
             <div className="set-ico"><IcBell width={19} height={19} /></div>
