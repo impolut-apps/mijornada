@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { IcBars, IcChevronR, IcClock, IcCoffee, IcPlay, IcStop, IcSync, IcUser } from "../components/icons";
 import { SyncBadge } from "../components/SyncBadge";
+import ClaseModal from "../components/ClaseModal";
 import { getProfile, getSessionEvents, getTodaySession, recordTimeEvent } from "../lib/fichaje";
 import { listClasses } from "../lib/classes";
 import { getIntegrationState, sendClock, type IntegrationState } from "../lib/school";
@@ -30,6 +31,7 @@ export default function Inicio() {
   const [name, setName] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [openClassId, setOpenClassId] = useState<string | null>(null);
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
@@ -64,6 +66,7 @@ export default function Inicio() {
   }, [classes, now, tz]);
 
   const classesCard = (
+    <>
     <div className="card" style={{ marginTop: 16 }}>
       <div className="row between" style={{ marginBottom: todayClasses.length ? 12 : 0 }}>
         <div className="h2" style={{ fontSize: "1rem" }}>Mis clases de hoy</div>
@@ -75,7 +78,7 @@ export default function Inicio() {
         </div>
       ) : (
         todayClasses.map((c) => (
-          <div className="class-row" key={c.id}>
+          <div className="class-row press" key={c.id} style={{ cursor: "pointer" }} onClick={() => setOpenClassId(c.id)}>
             <div className="ctime mono">{c.start_time.slice(0, 5)}</div>
             <div className="grow">
               <div style={{ fontWeight: 700 }}>{c.subject}</div>
@@ -90,6 +93,8 @@ export default function Inicio() {
         ))
       )}
     </div>
+    {openClassId && <ClaseModal classId={openClassId} onClose={() => setOpenClassId(null)} />}
+    </>
   );
 
   async function clock(type: ClockType) {

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { IcChevronL, IcChevronR, IcMusic, IcSync, IcUser } from "../components/icons";
 import { SkeletonRows } from "../components/Skeleton";
+import ClaseModal from "../components/ClaseModal";
 import { listClasses } from "../lib/classes";
 import { syncSchool } from "../lib/school";
 import { addDays, DAY_SHORT, dayNames, MONTHS, monthMatrix, parseYmd, weekDays, ymd } from "../lib/calendar";
@@ -11,8 +11,8 @@ import type { ClassItem } from "../lib/types";
 type View = "week" | "month";
 
 export default function Clases() {
-  const nav = useNavigate();
   const toast = useToast();
+  const [openClassId, setOpenClassId] = useState<string | null>(null);
   const [isDesktop, setIsDesktop] = useState(() => typeof window !== "undefined" && window.matchMedia("(min-width:900px)").matches);
   useEffect(() => {
     const mq = window.matchMedia("(min-width:900px)");
@@ -120,7 +120,7 @@ export default function Clases() {
     c.students.length ? c.students[0] + (c.students.length > 1 ? ` +${c.students.length - 1}` : "") : "Sin alumno";
 
   const EvChip = ({ c }: { c: ClassItem }) => (
-    <button className="ev-chip" onClick={() => nav(`/clases/${c.id}`)} title={`${studentLabel(c)} · ${c.subject} · ${c.classroom ?? ""}`}>
+    <button className="ev-chip" onClick={() => setOpenClassId(c.id)} title={`${studentLabel(c)} · ${c.subject} · ${c.classroom ?? ""}`}>
       <span className="ev-name">{studentLabel(c)}</span>
       <span className="ev-sub"><span className="ev-time">{c.start_time.slice(0, 5)}</span> {c.subject}</span>
     </button>
@@ -185,7 +185,7 @@ export default function Clases() {
               <div className="muted small" style={{ padding: "8px 2px" }}>Sin clases este día.</div>
             ) : (
               selectedClasses.map((c) => (
-                <div key={c.id} className="class-card press" style={{ cursor: "pointer" }} onClick={() => nav(`/clases/${c.id}`)}>
+                <div key={c.id} className="class-card press" style={{ cursor: "pointer" }} onClick={() => setOpenClassId(c.id)}>
                   <div className="row between">
                     <div className="row" style={{ gap: 12 }}>
                       <div className="ctime mono" style={{ minWidth: 52 }}>{c.start_time.slice(0, 5)}</div>
@@ -240,7 +240,7 @@ export default function Clases() {
                   </div>
                   <div className="wk-col-body">
                     {evs.length === 0 ? <span className="muted tiny">—</span> : evs.map((c) => (
-                      <button key={c.id} className="wk-ev" onClick={() => nav(`/clases/${c.id}`)}>
+                      <button key={c.id} className="wk-ev" onClick={() => setOpenClassId(c.id)}>
                         <div className="wk-ev-name">{studentLabel(c)}</div>
                         <div className="wk-ev-sub">{c.start_time.slice(0, 5)} · {c.subject}</div>
                         {c.classroom && <div className="wk-ev-room muted tiny">{c.classroom}</div>}
@@ -255,6 +255,8 @@ export default function Clases() {
 
         {isDesktop && (loading || syncing) && <div style={{ marginTop: 12 }}><SkeletonRows count={2} /></div>}
       </div>
+
+      {openClassId && <ClaseModal classId={openClassId} onClose={() => setOpenClassId(null)} />}
     </div>
   );
 }

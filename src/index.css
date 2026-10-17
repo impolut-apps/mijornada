@@ -534,3 +534,7 @@ code { background: var(--grey-050); padding: 1px 5px; border-radius: 5px; font-s
 .cal-left { display: flex; align-items: center; gap: 6px; }
 .cal-left .cal-period { font-size: 1.15rem; font-weight: 800; }
 .cal-right { display: flex; align-items: center; gap: 10px; }
+
+/* Modal ancho (detalle de clase) */
+.modal-lg { max-width: 440px; max-height: 85vh; overflow-y: auto; text-align: left; }
+.modal-lg .card:first-of-type { margin-top: 0; }
